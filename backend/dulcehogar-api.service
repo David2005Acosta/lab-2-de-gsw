@@ -1,0 +1,13 @@
+[Unit]
+Description=API Dulce Hogar (Unidad 1) - puerto 9000
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+ExecStart=/usr/bin/python3 /opt/dulcehogar/api.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

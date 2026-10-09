@@ -1,0 +1,107 @@
+=========================================================================
+ LABORATORIO 2 - GESTION DE SERVIDORES WEB
+ FASE 3 - VIRTUAL HOST + REVERSE PROXY
+ Responsable: Administrador de Redes/Proxy  Apoyo: Administrador de Seg.
+=========================================================================
+
+COMANDOS EJECUTADOS (dentro de Ubuntu - WSL2)
+-------------------------------------------------------------------------
+  sudo mkdir -p /var/www/dulcehogar.local
+  sudo chown -R www-data:www-data /var/www/dulcehogar.local
+  sudo a2enmod proxy proxy_http headers
+  sudo systemctl restart apache2
+  sudo nano /etc/apache2/sites-available/dulcehogar.local.conf
+  sudo a2ensite dulcehogar.local.conf
+  sudo apache2ctl configtest
+  sudo systemctl reload apache2
+  echo "127.0.0.1 dulcehogar.local" | sudo tee -a /etc/hosts
+  curl http://dulcehogar.local/api/saludo?nombre=Equipo
+
+CONTENIDO DEL VIRTUAL HOST (/etc/apache2/sites-available/dulcehogar.local.conf)
+-------------------------------------------------------------------------
+  <VirtualHost *:80>
+      ServerName dulcehogar.local
+      DocumentRoot /var/www/dulcehogar.local
+
+      ProxyPreserveHost On
+      ProxyPass /api http://localhost:9000/api
+      ProxyPassReverse /api http://localhost:9000/api
+
+      ErrorLog ${APACHE_LOG_DIR}/dulcehogar.local-error.log
+      CustomLog ${APACHE_LOG_DIR}/dulcehogar.local-access.log combined
+  </VirtualHost>
+
+Ademas se levanto el backend de la Unidad 1 en el puerto 9000 (API en
+Python expuesta por systemd como servicio dulcehogar-api).
+
+RESULTADO
+-------------------------------------------------------------------------
+  $ sudo apache2ctl configtest
+  Syntax OK
+
+  $ curl http://dulcehogar.local/api/saludo?nombre=Equipo
+  {"mensaje": "Hola Equipo, bienvenido a Dulce Hogar",
+   "servicio": "API Unidad 1", "puerto": 9000}
+
+  $ ss -tlnp | grep -E ':80 |:9000 '
+  LISTEN 0 511 *:80          *:*   users:(("apache2",...))
+  LISTEN 0 5   127.0.0.1:9000 0.0.0.0:* users:(("python3",...))
+
+-------------------------------------------------------------------------
+PREGUNTA 1. ¿Que hace ProxyPass /api http://localhost:9000/api?
+-------------------------------------------------------------------------
+Indica a Apache que cualquier peticion cuyo camino empiece con /api NO se
+busque en /var/www, sino que se reenvie (proxy) al backend que escucha en
+localhost:9000, conservando el prefijo /api. Es decir, Apache actua como
+intermediario: el navegador habla solo con Apache y este trae la respuesta
+de la API que corre detras. El cliente nunca ve el puerto 9000.
+
+-------------------------------------------------------------------------
+PREGUNTA 2. ¿Que diferencia hay entre ProxyPass y ProxyPassReverse?
+-------------------------------------------------------------------------
+  - ProxyPass: reescribe la peticion DE IDA. Toma la URL que llega a
+    Apache (/api/...) y la envia al backend (localhost:9000/api/...).
+  - ProxyPassReverse: reescribe las respuestas DE VUELTA. Corrige las
+    cabeceras Location/Content-Location/URI que el backend devuelva, para
+    que apunten al dominio publico (dulcehogar.local) y no al backend
+    interno (localhost:9000). Asi las redirecciones no "saltan" fuera del
+    proxy. Se usan juntas para que el proxy sea transparente.
+
+-------------------------------------------------------------------------
+PREGUNTA 3 (Reto). ¿Que pasaria si configtest falla? ¿Como lo depurarian
+           entre todos?
+-------------------------------------------------------------------------
+Si configtest falla, Apache NO debe reiniciarse, porque quedaria caido.
+Depuracion en equipo:
+  1. Leer el mensaje exacto: apache2ctl configtest indica archivo y linea.
+  2. Revisar ese Virtual Host y confirmar que los modulos requeridos estan
+     activos: apache2ctl -M | grep -E 'proxy|proxy_http|headers'.
+  3. Revisar los sitios activos y su ortografia (ServerName, rutas):
+     apache2ctl -t -D DUMP_VHOSTS
+  4. Corregir el .conf, volver a ejecutar configtest y solo entonces
+     recargar (systemctl reload apache2).
+
+-------------------------------------------------------------------------
+PREGUNTA 4. Capture la respuesta del curl. ¿Por que es la prueba de que
+           las Unidades 1 y 2 estan conectadas?
+-------------------------------------------------------------------------
+Respuesta obtenida:
+  {"mensaje": "Hola Equipo, bienvenido a Dulce Hogar",
+   "servicio": "API Unidad 1", "puerto": 9000}
+-> Captura: capturas/fase3-curl-exitoso.png
+
+Es la prueba porque el texto lo GENERA la API de la Unidad 1 (backend en
+el puerto 9000), pero lo ENTREGA Apache de la Unidad 2 a traves del Virtual
+Host y el Reverse Proxy. Si la URL usa el dominio de Apache y aun asi
+devuelve la respuesta de la API, significa que ambas unidades quedaron
+integradas y comunicandose correctamente.
+
+NOTA DE SOLUCION DE PROBLEMAS
+-------------------------------------------------------------------------
+  - Si al reiniciar Apache da error, verificar que proxy, proxy_http y
+    headers esten habilitados (a2enmod) y que el puerto 80 no lo use otro
+    servicio (IIS en Windows). Error encontrado en nuestro entorno: al
+    reiniciar cada sesion de WSL el Apache se detenia con la distro; se
+    resolvio manteniendo WSL2 en ejecucion y confirmando systemd activo.
+
+=========================================================================

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dulce Hogar - Reposteria Artesanal</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; background: #fff8f0; color: #4a2c1a; }
+        header { background: #b5651d; color: #fff; padding: 24px; text-align: center; }
+        h1 { margin: 0; }
+        main { max-width: 860px; margin: 32px auto; padding: 0 16px; }
+        .cards { display: flex; gap: 16px; flex-wrap: wrap; }
+        .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.12); padding: 16px; flex: 1 1 200px; }
+        .card h3 { margin-top: 0; color: #b5651d; }
+        footer { text-align: center; padding: 16px; color: #8a6b55; font-size: 14px; }
+        code { background: #f3e3d3; padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Dulce Hogar</h1>
+        <p>Reposteria artesanal salvadorena</p>
+    </header>
+    <main>
+        <h2>Catalogo de productos</h2>
+        <div class="cards">
+            <div class="card"><h3>Pasteles</h3><p>De chocolate, tres leches, vainilla y mas.</p></div>
+            <div class="card"><h3>Cupcakes</h3><p>Docenas personalizadas para toda ocasion.</p></div>
+            <div class="card"><h3>Galletas</h3><p>Artesanales, horneadas del dia.</p></div>
+            <div class="card"><h3>Postres</h3><p>Flan, cheesecake y tiramisu.</p></div>
+        </div>
+        <p>Prueba la API a traves del reverse proxy:
+            <code>/api/saludo?nombre=Equipo</code>
+        </p>
+    </main>
+    <footer>Servidor Apache en Ubuntu Server LTS &mdash; Laboratorio 2</footer>
+</body>
+</html>
