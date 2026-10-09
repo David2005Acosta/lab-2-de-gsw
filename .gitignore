@@ -1,0 +1,12 @@
+# OneDrive / Windows
+Thumbs.db
+desktop.ini
+*.tmp
+
+# Certificados privados (NUNCA subir la clave privada)
+*-key.pem
+rootCA-key.pem
+
+# Entornos
+.venv/
+__pycache__/
