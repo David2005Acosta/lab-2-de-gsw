@@ -1,0 +1,133 @@
+=========================================================================
+ LABORATORIO 2 - GESTION DE SERVIDORES WEB
+ FASE 4 - HTTPS LOCAL CON mkcert
+ Responsable: Administrador de Certificados (SSL)   Apoyo: Documentador
+=========================================================================
+
+COMANDOS EJECUTADOS (dentro de Ubuntu - WSL2)
+-------------------------------------------------------------------------
+  sudo apt update
+  sudo apt install -y libnss3-tools wget
+  wget -O mkcert https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
+  chmod +x mkcert
+  sudo mv mkcert /usr/local/bin/mkcert
+  mkcert -install
+  mkcert dulcehogar.local
+  sudo mkdir -p /etc/apache2/ssl/dulcehogar.local
+  sudo mv dulcehogar.local.pem dulcehogar.local-key.pem /etc/apache2/ssl/dulcehogar.local/
+  # ports.conf: se agrego la linea -> Listen 8900
+  sudo a2enmod ssl
+  sudo a2ensite dulcehogar.local-ssl.conf
+  sudo apache2ctl configtest
+  sudo systemctl restart apache2
+  sudo ss -tlnp | grep apache2
+
+CONTENIDO (/etc/apache2/sites-available/dulcehogar.local-ssl.conf)
+-------------------------------------------------------------------------
+  <IfModule mod_ssl.c>
+      <VirtualHost *:8900>
+          ServerName dulcehogar.local
+          DocumentRoot /var/www/dulcehogar.local
+
+          SSLEngine on
+          SSLCertificateFile    /etc/apache2/ssl/dulcehogar.local/dulcehogar.local.pem
+          SSLCertificateKeyFile /etc/apache2/ssl/dulcehogar.local/dulcehogar.local-key.pem
+
+          ProxyPreserveHost On
+          ProxyPass /api http://localhost:9000/api
+          ProxyPassReverse /api http://localhost:9000/api
+      </VirtualHost>
+  </IfModule>
+
+IMPORTANTE: El guion importa. Se escribe "mkcert -install" (con guion).
+Si se escribe "mkcert install" (sin guion) mkcert genera un certificado
+basura para un dominio llamado "install" y la CA no se instala bien.
+
+RESULTADO
+-------------------------------------------------------------------------
+  $ mkcert -install
+  Created a new local CA
+  The local CA is now installed in the system trust store!
+
+  $ mkcert dulcehogar.local
+  Created a new certificate valid for the following names
+   - "dulcehogar.local"
+  The certificate is at "./dulcehogar.local.pem"
+  and the key at "./dulcehogar.local-key.pem"
+  It will expire on 9 January 2029
+
+  $ sudo apache2ctl configtest
+  Syntax OK
+
+  $ sudo ss -tlnp | grep apache2
+  LISTEN *:443   users:(("apache2",...))
+  LISTEN *:80    users:(("apache2",...))
+  LISTEN *:8900  users:(("apache2",...))
+
+  $ curl https://dulcehogar.local:8900/api/saludo?nombre=Equipo
+  {"mensaje": "Hola Equipo, bienvenido a Dulce Hogar",
+   "servicio": "API Unidad 1", "puerto": 9000}
+
+CONFIANZA DE LA CA EN WINDOWS
+-------------------------------------------------------------------------
+mkcert -install solo confia en la CA dentro de WSL2. Para que el navegador
+en Windows no muestre advertencia se copio el archivo rootCA.pem (publico)
+a Windows y se instalo en "Entidades de certificacion raiz de confianza"
+del usuario actual:
+  certutil -user -addstore Root config\rootCA.crt
+Los archivos generados quedan en config/rootCA.pem y config/rootCA.crt.
+
+-------------------------------------------------------------------------
+PREGUNTA 1. ¿Por que certbot no funciona para dulcehogar.local?
+-------------------------------------------------------------------------
+Porque certbot obtiene certificados de Let's Encrypt, una CA publica que
+solo emite para dominios reales de Internet. Para validar el dominio usa
+retos ACME (HTTP-01 o DNS-01) que requieren que "dulcehogar.local" sea
+resoluble publicamente y accesible desde Internet. Un dominio .local es
+privado (solo existe en el archivo hosts/local), por lo que Let's Encrypt
+no puede validarlo. Para dominios locales se usa mkcert (CA local).
+
+-------------------------------------------------------------------------
+PREGUNTA 2. ¿Que diferencia hay entre un certificado autofirmado y uno
+           firmado por mkcert?
+-------------------------------------------------------------------------
+  - Autofirmado: el propio servidor firma su certificado y nadie confia en
+    el automaticamente. El navegador muestra "No es seguro" y hay que
+    aceptar la excepcion manualmente.
+  - mkcert: crea una CA local y firma el certificado con ella; ademas
+    instala esa CA en el almacen de confianza del sistema/navegador. Como
+    el cliente confia en la CA, el candado aparece validamente SIN
+    advertencia. (Nota: sigue siendo valido solo en las maquinas donde se
+    confio la CA.)
+
+-------------------------------------------------------------------------
+PREGUNTA 3 (Reto). Si desplegaran en un dominio publico real
+           (dulcehogar.com.sv), ¿que cambiarian?
+-------------------------------------------------------------------------
+  1. Certificado: dejar mkcert y usar certbot + Let's Encrypt, o comprar
+     un certificado a una CA publica.
+  2. Dominio/DNS: registrar dulcehogar.com.sv y apuntar los registros DNS
+     (A/AAAA) a la IP publica del servidor.
+  3. Puerto y Virtual Host: servir HTTPS en el 443 (no 8900), con
+     ServerName dulcehogar.com.sv y redireccion 80 -> 443.
+  4. Endurecer: activar HSTS, renovacion automatica del certificado y
+     retirar la linea de la CA local del navegador.
+
+-------------------------------------------------------------------------
+PREGUNTA 4. Capturen pantalla de
+           https://dulcehogar.local:8900/api/saludo?nombre=Equipo
+           sin advertencia.
+-------------------------------------------------------------------------
+-> Captura: capturas/fase4-https-sin-advertencia.png
+Recordar incluir el puerto :8900 en la barra del navegador y que el candado
+aparezca cerrado (sin "No seguro").
+
+NOTA DE ERRORES ENCONTRADOS Y SOLUCIONES
+-------------------------------------------------------------------------
+  - "mkcert install" (sin guion) crea un certificado para el dominio
+    "install" y no instala la CA. Solucion: usar siempre "mkcert -install".
+  - Al reiniciar Windows/WSL, el puerto 8900 no respondia porque la distro
+    de WSL se apagaba. Solucion: iniciar WSL y verificar systemctl activo;
+    el puerto 8900 se declara en ports.conf con "Listen 8900".
+
+=========================================================================
