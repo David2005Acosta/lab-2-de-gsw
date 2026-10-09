@@ -2,7 +2,7 @@
  LABORATORIO 2 - GESTION DE SERVIDORES WEB
  FASE 1 - DIMENSIONAMIENTO COLABORATIVO
  Caso: "Dulce Hogar" - Reposteria Artesanal (El Salvador)
- Equipo: XX        Seccion: ____
+ Equipo: 4         Seccion: A
 =========================================================================
 
 Servidor asignado:

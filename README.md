@@ -1,4 +1,4 @@
-# gsw-practico-unidad2-equipoXX
+# gsw-practico-unidad2-equipo04
 
 **Gestion de Servidores Web - Laboratorio 2**
 Caso: **"Dulce Hogar"** - Reposteria artesanal (El Salvador)
@@ -22,7 +22,7 @@ y sirve el sitio por **HTTPS local con mkcert**.
 
 > Ajusten los nombres/roles segun el acuerdo final del equipo.
 
-**Equipo N.º:** XX  |  **Seccion:** ____
+**Equipo N.º:** 4  |  **Seccion:** A
 
 ---
 
