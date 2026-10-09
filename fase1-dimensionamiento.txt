@@ -1,0 +1,86 @@
+=========================================================================
+ LABORATORIO 2 - GESTION DE SERVIDORES WEB
+ FASE 1 - DIMENSIONAMIENTO COLABORATIVO
+ Caso: "Dulce Hogar" - Reposteria Artesanal (El Salvador)
+ Equipo: XX        Seccion: ____
+=========================================================================
+
+Servidor asignado:
+  - Sistema operativo : Ubuntu Server LTS (WSL2 en equipos Windows)
+  - Hardware          : 2 vCPU, 4 GB RAM, 40 GB SSD
+  - Trafico estimado  : 500 visitas/dia con picos de 3,000 en dias festivos
+  - Dominio           : dulcehogar.local (catalogo de productos)
+
+-------------------------------------------------------------------------
+1) ¿Son suficientes 2 vCPU y 4 GB de RAM para el trafico diario normal?
+   ¿Y para el pico de 3,000 visitas? Calcule el factor pico.
+-------------------------------------------------------------------------
+Factor pico = 3,000 / 500 = 6x.
+
+Justificacion:
+  Para 500 visitas/dia (aprox. 0.006 visitas/segundo en promedio) 2 vCPU
+  y 4 GB son MAS que suficientes: Apache sirviendo un catalogo estatico
+  usa muy poca CPU y RAM (Apache con el modulo mpm_event atiende cientos
+  de conexiones concurrentes con poca memoria).
+  Para el pico de 3,000 visitas el factor es 6x: sigue siendo un volumen
+  moderado si el contenido es estatico y hay cache/keep-alive; el riesgo
+  aparece si las 3,000 visitas llegan concentradas en pocos minutos o si
+  el backend de la API (puerto 9000) hace trabajo pesado. Con contenido
+  estatico + cache el servidor aguanta; con logica dinamica por request
+  habria que vigilar RAM/CPU y el limite de procesos.
+
+-------------------------------------------------------------------------
+2) ¿Escalar vertical u horizontalmente para el pico? Justifique segun
+   costo, tiempo y presupuesto de una PyME.
+-------------------------------------------------------------------------
+Recomendacion: ESCALADO VERTICAL (mas RAM/CPU) como primera medida,
+apoyado en cache y, si el pico es estacional, en una CDN/nube.
+
+Justificacion:
+  - Costo/tiempo: subir vCPU o RAM a una sola maquina es inmediato y no
+    exige redisenar la aplicacion ni montar balanceador.
+  - Presupuesto PyME: el pico es ocasional (dias festivos), por lo que
+    comprar un segundo servidor permanente es caro y sobrado.
+  - Horizontal tiene sentido cuando el trafico alto es constante; ahi si
+    conviene balanceador + multiples nodos sin estado. Para "Dulce Hogar"
+    el escalado vertical (o "cloud burst" temporal) es lo mas eficiente.
+
+-------------------------------------------------------------------------
+3) ¿Que recurso vigilarian primero si el servidor responde con lentitud?
+   Expliquen con base en los 4 recursos (CPU, RAM, disco, red).
+-------------------------------------------------------------------------
+Primero vigilariamos la RAM.
+
+Justificacion:
+  - RAM: Apache crea multiples procesos/threads; si se agota la RAM el
+    sistema usa swap y la latencia se dispara (causa #1 de lentitud en
+    servidores web). Se vigila con: free -h, top, htop, vmstat, sar -r.
+  - CPU: se revisa despues con top/uptime (load average) y mpstat.
+  - Disco: revisar I/O con iostat/iotop y el uso con df -h (evitar 100%).
+  - Red: medir ancho de banda y conexiones con iftop, nload y ss -s.
+  Herramientas utiles para el monitoreo continuo: top/htop, sysstat (sar),
+  y para el pico usar Netdata o Glances.
+
+-------------------------------------------------------------------------
+4) Decision del equipo: ¿nube o servidor local? Tabla comparativa.
+-------------------------------------------------------------------------
+Criterio          | NUBE (VPS)                    | SERVIDOR LOCAL
+------------------+-------------------------------+-------------------------
+Costo inicial     | Bajo (pago mensual), sin CAPEX| Alto (hardware + respaldo
+                  |                               | electrico + instalacion)
+------------------+-------------------------------+-------------------------
+Escalabilidad     | Alta (subir plan en minutos,  | Limitada por el hardware
+                  | autoescalado)                 | fisico adquirido
+------------------+-------------------------------+-------------------------
+Mantenimiento     | Compartido: proveedor cuida   | Total del equipo: SO,
+                  | energia, red y disponibilidad | updates, backups, energia
+------------------+-------------------------------+-------------------------
+Control           | Parcial (acceso por panel/SSH)| Total (acceso fisico y
+                  |                               | configuracion completa)
+-------------------------------------------------------------------------
+Decision del equipo: NUBE (VPS) para produccion por su escalabilidad ante
+los picos de dias festivos, su bajo costo inicial y menor mantenimiento.
+El servidor LOCAL (Ubuntu en WSL2) se mantiene como entorno de desarrollo
+y pruebas, que es exactamente lo aprendido en este laboratorio.
+
+=========================================================================
