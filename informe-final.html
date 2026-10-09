@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Informe Final - Laboratorio 2 - Dulce Hogar</title>
+<style>
+  @page { size: A4; margin: 20mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #222; line-height: 1.5; font-size: 12pt; }
+  h1 { color: #8a4b13; border-bottom: 3px solid #b5651d; padding-bottom: 6px; }
+  h2 { color: #b5651d; margin-top: 28px; border-bottom: 1px solid #e0c3a8; padding-bottom: 4px; }
+  h3 { color: #6b4a2b; }
+  .cover { text-align: center; padding-top: 120px; }
+  .cover h1 { border: none; font-size: 30pt; }
+  .cover .sub { font-size: 16pt; color: #b5651d; margin-bottom: 40px; }
+  .cover .meta { margin-top: 60px; font-size: 12pt; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th, td { border: 1px solid #c9a884; padding: 6px 8px; text-align: left; font-size: 11pt; }
+  th { background: #f3e3d3; }
+  code, pre { font-family: Consolas, 'Courier New', monospace; }
+  pre { background: #f6f6f6; border: 1px solid #ddd; border-left: 4px solid #b5651d; padding: 10px; font-size: 10pt; overflow-x: auto; white-space: pre-wrap; }
+  .box { background: #fff8f0; border: 1px solid #e0c3a8; border-radius: 6px; padding: 10px 14px; }
+  .pagebreak { page-break-before: always; }
+  ul { margin: 6px 0; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>Dulce Hogar</h1>
+  <div class="sub">Reposteria Artesanal &mdash; Gestion de Servidores Web</div>
+  <div class="sub">Laboratorio 2 &mdash; Unidad 2</div>
+  <div class="meta">
+    <p><strong>Equipo N.º:</strong> XX &nbsp;&nbsp; <strong>Seccion:</strong> ____</p>
+    <p><strong>Integrantes:</strong></p>
+    <p>
+      José Santos Aguilar De La Cruz<br>
+      Luis Roman Lino Merino<br>
+      Carlos Josue Majano Granados<br>
+      Andersson Wilfredo Vargas Reyes<br>
+      Edwin David Diaz Acosta<br>
+      Dereck Enrique Ventura Benitez
+    </p>
+  </div>
+</div>
+
+<div class="pagebreak"></div>
+<h2>1. Introduccion</h2>
+<p>
+La empresa salvadorena <strong>&ldquo;Dulce Hogar&rdquo;</strong>, dedicada a la reposteria artesanal,
+necesita publicar su catalogo en linea y recibir pedidos por Internet. Actualmente
+vende por WhatsApp y redes sociales. El equipo fue contratado como administrador del
+servidor web para montar la infraestructura completa sobre <strong>Ubuntu Server LTS</strong>
+(ejecutado con WSL2 en equipos Windows).
+</p>
+<p>
+El presente informe documenta las cuatro fases del laboratorio: dimensionamiento
+del servidor, instalacion de Apache, configuracion de un Virtual Host con Reverse
+Proxy hacia la API de la Unidad 1, y publicacion del sitio por HTTPS local con
+<strong>mkcert</strong>.
+</p>
+
+<h2>2. Fase 1 &mdash; Dimensionamiento colaborativo</h2>
+<h3>2.1 ¿Bastan 2 vCPU y 4 GB de RAM para el trafico normal y para el pico?</h3>
+<p>
+El factor pico es <strong>3,000 / 500 = 6x</strong>. Para el trafico diario (500 visitas/dia,
+unas 0.006 visitas/segundo) 2 vCPU y 4 GB son mas que suficientes para servir un
+catalogo estatico. Para el pico, el volumen sigue siendo moderado si el contenido es
+estatico y cacheable; el riesgo aparece si las visitas se concentran en pocos minutos
+o si el backend hace trabajo pesado por peticion.
+</p>
+<h3>2.2 ¿Escalado vertical u horizontal?</h3>
+<p>
+Para una PyME con picos estacionales recomendamos <strong>escalado vertical</strong> (mas
+RAM/CPU) apoyado en cache y, si el pico es muy puntual, en una CDN o &ldquo;cloud burst&rdquo;.
+Es inmediato, no exige redisenar la aplicacion y evita el costo de mantener un segundo
+servidor permanente, algo sobredimensionado para un trafico que solo sube en dias festivos.
+</p>
+<h3>2.3 Recurso a vigilar primero</h3>
+<p>
+Primero la <strong>RAM</strong>: Apache levanta multiples procesos/threads y si se agota la
+memoria entra el swap y la latencia se dispara. Luego CPU (top, load average), despues
+disco (iostat, df -h) y red (iftop, ss -s).
+</p>
+<h3>2.4 Nube o servidor local</h3>
+<table>
+  <tr><th>Criterio</th><th>Nube (VPS)</th><th>Servidor local</th></tr>
+  <tr><td>Costo inicial</td><td>Bajo (pago mensual, sin CAPEX)</td><td>Alto (hardware, energia, respaldo)</td></tr>
+  <tr><td>Escalabilidad</td><td>Alta (subir de plan en minutos)</td><td>Limitada por el hardware comprado</td></tr>
+  <tr><td>Mantenimiento</td><td>Compartido con el proveedor</td><td>Total del equipo</td></tr>
+  <tr><td>Control</td><td>Parcial (panel/SSH)</td><td>Total (acceso fisico)</td></tr>
+</table>
+<p class="box"><strong>Decision del equipo:</strong> NUBE (VPS) para produccion por su
+escalabilidad ante los picos y su menor mantenimiento; el servidor
+LOCAL (WSL2) como entorno de desarrollo y pruebas.</p>
+
+<h2>3. Fase 2 &mdash; Instalacion de Apache</h2>
+<p>Comandos principales:</p>
+<pre>sudo apt update
+sudo apt install -y apache2
+sudo systemctl enable --now apache2
+curl http://localhost
+sudo apache2ctl configtest   # -> Syntax OK</pre>
+<p>Apache 2.4.58 quedo <em>active (running)</em> y sirvio la pagina por defecto
+&ldquo;It works!&rdquo;. <strong>sites-available</strong> guarda las definiciones de los sitios;
+<strong>sites-enabled</strong> contiene los enlaces a los que Apache carga realmente
+(gestionados con <code>a2ensite</code>/<code>a2dissite</code>). <code>configtest</code> es
+clave porque valida la sintaxis antes de reiniciar y evita dejar el servidor caido.</p>
+
+<h2>4. Fase 3 &mdash; Virtual Host + Reverse Proxy</h2>
+<p>Se creo <code>/var/www/dulcehogar.local</code> con propietario <code>www-data</code>,
+se habilitaron los modulos <code>proxy</code>, <code>proxy_http</code> y <code>headers</code>,
+y se definio el Virtual Host <code>dulcehogar.local.conf</code> que envia <code>/api</code>
+al backend del puerto 9000.</p>
+<pre>ProxyPreserveHost On
+ProxyPass        /api http://localhost:9000/api
+ProxyPassReverse /api http://localhost:9000/api</pre>
+<p>
+<code>ProxyPass</code> reescribe la peticion de ida (Apache &rarr; backend) y
+<code>ProxyPassReverse</code> reescribe las cabeceras de redireccion de vuelta para que
+apuntan al dominio publico y no al backend interno. Prueba de integracion:
+</p>
+<pre>curl http://dulcehogar.local/api/saludo?nombre=Equipo
+{"mensaje": "Hola Equipo, bienvenido a Dulce Hogar",
+ "servicio": "API Unidad 1", "puerto": 9000}</pre>
+<p>
+Esta respuesta demuestra que las <strong>Unidades 1 y 2 estan conectadas</strong>: el texto
+lo genera la API (Unidad 1) y lo entrega Apache (Unidad 2) mediante el Reverse Proxy.
+</p>
+
+<h2>5. Fase 4 &mdash; HTTPS local con mkcert</h2>
+<pre>mkcert -install            # con guion (crea la CA local y la confia)
+mkcert dulcehogar.local    # genera el par certificado/clave
+# ports.conf incluye: Listen 8900
+sudo a2enmod ssl
+sudo a2ensite dulcehogar.local-ssl.conf
+sudo systemctl restart apache2</pre>
+<p>
+El sitio quedo disponible en <strong>https://dulcehogar.local:8900</strong>. El certificado
+de <code>mkcert</code> es valido para <code>dulcehogar.local</code> y expira el
+9 de enero de 2029. <code>certbot</code> no sirve para dominios <code>.local</code> porque
+Let&rsquo;s Encrypt solo emite para dominios publicos validables por Internet. Un certificado
+autofirmado provoca advertencia del navegador; el de mkcert no, porque su CA local se
+instala en el almacen de confianza.
+</p>
+
+<h2>6. Conclusiones</h2>
+<ul>
+  <li>Apache sobre Ubuntu LTS es una solucion libre, estable y adecuada para el catalogo de Dulce Hogar.</li>
+  <li>El Reverse Proxy permite separar el front-end estatico (Apache) del back-end (API), uniendo las Unidades 1 y 2.</li>
+  <li>mkcert habilita HTTPS local confiable sin comprar certificados, ideal para desarrollo y pruebas.</li>
+  <li>Para produccion se recomienda migrar a un VPS, usar certbot/Let&rsquo;s Encrypt y HTTPS en el puerto 443.</li>
+</ul>
+
+<h2>7. Distribucion de roles</h2>
+<table>
+  <tr><th>Rol</th><th>Integrante</th></tr>
+  <tr><td>Coordinador / Git</td><td>José Santos Aguilar De La Cruz</td></tr>
+  <tr><td>Adm. de Servidor Base</td><td>Carlos Josue Majano Granados</td></tr>
+  <tr><td>Adm. de Redes / Proxy</td><td>Luis Roman Lino Merino</td></tr>
+  <tr><td>Adm. de Certificados (SSL)</td><td>Andersson Wilfredo Vargas Reyes</td></tr>
+  <tr><td>Adm. de Permisos (OS)</td><td>Edwin David Diaz Acosta</td></tr>
+  <tr><td>Documentador / QA</td><td>Dereck Enrique Ventura Benitez</td></tr>
+</table>
+
+</body>
+</html>

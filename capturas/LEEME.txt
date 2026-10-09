@@ -1,0 +1,23 @@
+CARPETAS DE CAPTURAS - LABORATORIO 2
+====================================
+
+Aqui van las capturas tomadas del ENTORNO PROPIO del equipo (no de Internet):
+
+1) fase2-apache-activo.png
+   Que debe verse:
+   - Terminal WSL/Ubuntu mostrando: sudo systemctl status apache2 (Active: active running).
+   - El navegador en http://localhost mostrando "Apache2 Ubuntu Default Page" / "It works!".
+
+2) fase3-curl-exitoso.png
+   Que debe verse:
+   - La terminal con el comando y su salida:
+     curl http://dulcehogar.local/api/saludo?nombre=Equipo
+     {"mensaje": "Hola Equipo, bienvenido a Dulce Hogar", ...}
+
+3) fase4-https-sin-advertencia.png
+   Que debe verse:
+   - El navegador en: https://dulcehogar.local:8900/api/saludo?nombre=Equipo
+   - El puerto :8900 visible en la barra de direcciones.
+   - El candado CERRADO (sin "No seguro").
+
+TIP: Recuerden que el equipo y WSL deben estar en ejecucion al tomar la captura.
