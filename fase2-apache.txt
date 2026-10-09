@@ -1,0 +1,95 @@
+=========================================================================
+ LABORATORIO 2 - GESTION DE SERVIDORES WEB
+ FASE 2 - INSTALACION DE APACHE
+ Responsable: Administrador de Servidor       Apoyo: Coordinador
+=========================================================================
+
+COMANDOS EJECUTADOS (dentro de Ubuntu - WSL2)
+-------------------------------------------------------------------------
+  sudo apt update
+  sudo apt install -y apache2
+  sudo systemctl status apache2
+  sudo systemctl enable apache2
+  curl http://localhost
+  ls /etc/apache2/sites-available/
+  ls /var/www/html/
+
+RESULTADO
+-------------------------------------------------------------------------
+  Server version: Apache/2.4.58 (Ubuntu)
+  Server built:   2026-10-05T17:25:07
+
+  apache2.service - The Apache HTTP Server
+       Loaded: loaded (/usr/lib/systemd/system/apache2.service; enabled)
+       Active: active (running)
+       Main PID: 1365 (apache2)
+
+  $ ls /etc/apache2/sites-available/
+  000-default.conf
+  default-ssl.conf
+
+  $ ls /etc/apache2/sites-enabled/
+  000-default.conf
+
+  $ ls /var/www/html/
+  index.html
+
+  $ curl -s http://localhost | head -5
+  <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" ...>
+  <html xmlns="http://www.w3.org/1999/xhtml">
+    <!--
+      Modified from the Debian original for Ubuntu
+      Last updated: 2022-03-22
+
+  $ sudo apache2ctl configtest
+  Syntax OK
+
+-------------------------------------------------------------------------
+PREGUNTA 1. ¿Que muestra la pagina por defecto de Apache?
+-------------------------------------------------------------------------
+Muestra la pagina "Apache2 Ubuntu Default Page" con el clasico titulo
+"It works!". Es un index.html de bienvenida que Ubuntu coloca en
+/var/www/html/ y que confirma que el servicio responde correctamente.
+-> Captura: capturas/fase2-apache-activo.png
+
+-------------------------------------------------------------------------
+PREGUNTA 2. ¿Que diferencia hay entre sites-available y sites-enabled?
+-------------------------------------------------------------------------
+  - sites-available/: guarda TODAS las definiciones (archivos .conf) de
+    los Virtual Hosts que existen en el sistema, esten activos o no.
+  - sites-enabled/: contiene enlaces simbolicos a los sitios que Apache
+    carga realmente al iniciar. Solo lo que esta aqui se sirve.
+  Se administran con a2ensite (activar) y a2dissite (desactivar), que
+  crean/borran el enlace simbolico entre ambos directorios. Esto permite
+  mantener varios sitios configurados sin tenerlos todos en produccion.
+
+-------------------------------------------------------------------------
+PREGUNTA 3. Ejecuten sudo apache2ctl configtest. ¿Que reporta?
+           ¿Por que es importante antes de reiniciar?
+-------------------------------------------------------------------------
+Reporta "Syntax OK" cuando la configuracion es valida (o el error exacto
+con archivo y linea cuando no lo es). Es importante porque valida la
+sintaxis ANTES de aplicar los cambios: si se reiniciara con un error de
+sintaxis, Apache no arrancaria y el sitio quedaria caido. configtest es
+el "chequeo previo" que evita dejar el servidor fuera de linea.
+
+-------------------------------------------------------------------------
+PREGUNTA 4 (Reto). Si Apache no arrancara, ¿que 3 pasos seguiri
+           para diagnosticar el problema?
+-------------------------------------------------------------------------
+  Paso 1: Ver el estado y los logs del servicio:
+            sudo systemctl status apache2
+            sudo journalctl -u apache2 -n 50 --no-pager
+          El mensaje suele indicar la causa exacta (config invalida,
+          puerto ocupado, permisos).
+  Paso 2: Validar la configuracion:
+            sudo apache2ctl configtest
+          Corrige cualquier error de sintaxis o Virtual Host.
+  Paso 3: Revisar puertos y conflictos:
+            sudo ss -tlnp | grep -E ':80|:443'
+            sudo lsof -i :80
+          Verifica que el puerto 80 no este usado por otro servicio
+          (por ejemplo IIS en Windows o Nginx) y revisa los logs en
+          /var/log/apache2/error.log.
+
+=========================================================================
